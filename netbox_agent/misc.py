@@ -29,9 +29,12 @@ def get_device_type(type):
 def get_device_platform(device_platform):
     if device_platform is None:
         try:
+            release_info = distro.os_release_info()
+            release_info['release_codename'] = release_info.get('release_codename', '')
+            release_info['version_id'] = release_info.get('version_id', '')
             linux_distribution = "{name} {version_id} {release_codename}".format(
-                **distro.os_release_info()
-            )
+                **release_info
+            ).strip()
 
             if not linux_distribution:
                 return None
