@@ -286,22 +286,27 @@ class Network(object):
 
     def update_interface_macs(self, nic, macs):
         nb_macs = list(self.nb_net.mac_addresses.filter(interface_id=nic.id))
+        result_macs = nb_macs.copy()
         # Clean
         for nb_mac in nb_macs:
             if nb_mac.mac_address not in macs:
                 logging.debug("Deleting extra MAC {mac} from {nic}".format(mac=nb_mac, nic=nic))
                 nb_mac.delete()
+                result_macs.remove(nb_mac)
         # Add missing
         for mac in macs:
             if mac not in {nb_mac.mac_address for nb_mac in nb_macs}:
                 logging.debug("Adding MAC {mac} to {nic}".format(mac=mac, nic=nic))
-                self.nb_net.mac_addresses.create(
+                nb_mac = self.nb_net.mac_addresses.create(
                     {
                         "mac_address": mac,
                         "assigned_object_type": "dcim.interface",
                         "assigned_object_id": nic.id,
                     }
                 )
+                result_macs.append(nb_mac)
+
+        return result_macs
 
     def create_netbox_nic(self, nic, mgmt=False):
         # TODO: add Optic Vendor, PN and Serial
@@ -534,7 +539,7 @@ class Network(object):
             if version.parse(nb.version) >= version.parse("4.2"):
                 # Create MAC objects
                 if nic["mac"]:
-                    self.update_interface_macs(interface, [nic["mac"]])
+                    nb_macs = self.update_interface_macs(interface, [nic["mac"]])
 
             if nic["mac"] and nic["mac"] != interface.mac_address:
                 logging.info(
@@ -545,7 +550,7 @@ class Network(object):
                 if version.parse(nb.version) < version.parse("4.2"):
                     interface.mac_address = nic["mac"]
                 else:
-                    interface.primary_mac_address = {"mac_address": nic["mac"]}
+                    interface.primary_mac_address = nb_macs[0]
                 nic_update += 1
 
             if hasattr(interface, "mtu"):
